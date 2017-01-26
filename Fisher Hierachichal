@@ -1,0 +1,98 @@
+modified code to produce clusters according to hierachical clustering
+
+#change kclusters to reveal cluster centers for a particular k
+#change maxclust to determine the number of k to which maxclust iterates to
+kclusters = 3
+maxclust = 15
+
+library("cluster", lib.loc="~/R/win-library/3.2")
+library(colorspace)
+library(dendextend)
+
+#import your data here in csv format
+fisher <- read.csv("Fisher's_Iris.csv", header = T, stringsAsFactors = F)
+x <- fisher[,3:6, drop=FALSE]
+
+
+#normalizing x
+normalize <- function(x) { 
+  x <- as.matrix(x)
+  minAttr=apply(x, 2, min)
+  maxAttr=apply(x, 2, max)
+  x <- sweep(x, 2, minAttr, FUN="-") 
+  x=sweep(x, 2,  maxAttr-minAttr, "/") 
+  attr(x, 'normalized:min') = minAttr
+  attr(x, 'normalized:max') = maxAttr
+  return (x)
+} 
+
+x <- normalize(x)
+#x <- scale(x, center = TRUE, scale = TRUE)
+
+
+#create list
+x.1 <- c(0)
+
+#clustering
+y <- dist(as.matrix(x))
+
+b <- hclust(y, method = "ward.D")
+dend <- as.dendrogram(b)
+
+#loop function to plot Silhouette Score
+for (i in 2:maxclust) { 
+  
+  sil <- silhouette(cutree(b,k=i,h=NULL),y)
+
+  x.1[i] <- summary(sil)[["avg.width"]]
+}
+
+
+#graphical output  
+par(mfrow = c(1,1))
+
+
+#plot(1:15, x.1, type="b", xlab="Number of Clusters",ylab="Silhouette Score")
+
+#coloring the dendrogram
+fisher[,2] <- as.factor(fisher[,2])
+species_labels <- fisher[,2]
+species_col <- rev(rainbow_hcl(3))[as.numeric(species_labels)]
+iris_species <- rev(levels(fisher[,2]))
+
+# Color the branches based on the clusters:
+dend <- color_branches(dend, k=3) #, groupLabels=iris_species)
+
+# Manually match the labels, as much as possible, to the real classification of the flowers:
+labels_colors(dend) <- rainbow_hcl(3)[sort_levels_values(as.numeric(fisher[,2])[order.dendrogram(dend)])]
+
+# We shall add the flower type to the labels:
+labels(dend) <- paste(as.character(fisher[,2])[order.dendrogram(dend)],"(",labels(dend),")", sep = "")
+# reduce the size of the labels:
+# dend <- assign_values_to_leaves_nodePar(dend, 0.5, "lab.cex")
+dend <- set(dend, "labels_cex", 0.5)
+# And plot:
+par(mar = c(3,3,3,7))
+plot(dend, main = "Clustered Iris data set (the labels give the true flower species)",  nodePar = list(cex = .007))
+legend("topright", legend = iris_species, fill = rainbow_hcl(3))
+
+
+
+#Output for data for given k
+hclust_methods <- c("ward.D", "single", "complete", "average", "mcquitty", "median", "centroid", "ward.D2")
+
+#create list
+score <- c(0)
+
+#loop for different hclust methods
+for(i in seq_along(hclust_methods)) {
+  b <- hclust(y, method = hclust_methods[i])   
+  
+  alpha <- cutree(b,k=kclusters,h=NULL)
+  ct.km <- table(fisher$Species, alpha)
+  library(flexclust)
+  score[i] <- randIndex(ct.km)
+}
+
+score
+ct.km
