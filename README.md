@@ -1,2 +1,2 @@
 # Fisher-clustering
-Exploration on clustering uses the Fisher Iris data set
+Exploration on clustering using the Fisher Iris data set
